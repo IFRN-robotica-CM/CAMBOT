@@ -1,100 +1,75 @@
 import cv2
 import numpy as np
+import json
 
-def detectar_circulos(imagem_path):
-    # Carregar a imagem
-    img = cv2.imread(imagem_path, cv2.IMREAD_COLOR)
+def detectar_circulos_video(video):
+    data_balls = {"balls": []}
+
+    # Ler um quadro do vídeo
+    ret, frame = video.read()
     
-    # Converter a imagem para escala de cinza
-    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if not ret:
+        print("Erro ao ler o vídeo.")
+        cap.release()
+        return
+
+    # Converter o quadro para escala de cinza
+    img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     # Aplicar um desfoque para reduzir ruídos
     img_blur = cv2.medianBlur(img_gray, 5)
 
     # Detectar círculos usando a Transformada de Hough
-    circles = cv2.HoughCircles(img_blur, cv2.HOUGH_GRADIENT, dp=1, minDist=20,
-                               param1=60, param2=35, minRadius=0, maxRadius=0)
+    circles = cv2.HoughCircles(img_blur, cv2.HOUGH_GRADIENT, dp=1, minDist=70,
+                               param1=60, param2=35, minRadius=10, maxRadius=0)
 
     # Verificar se algum círculo foi encontrado
     if circles is not None:
         circles = np.uint16(np.around(circles))
+        
+        num_circles = 1
         for i in circles[0, :]:
+            # Criar uma nova instância de dicionário para cada círculo
+            data = {"id": num_circles, "location": {"x": 0, "y": 0}, "type": " "}
+            num_circles += 1
+            
             # Coordenadas do centro e raio do círculo
             x, y, radius = i[0], i[1], i[2]
-
+            
+            data["location"]["x"] = int(x)
+            data["location"]["y"] = int(y)
+            
+            # Garantir que o círculo esteja dentro dos limites da imagem
+            x1, x2 = max(0, x-radius), min(frame.shape[1], x+radius)
+            y1, y2 = max(0, y-radius), min(frame.shape[0], y+radius)
+            
             # Calcular a cor média dentro do círculo
-            avg_color = np.mean(img[y-radius:y+radius, x-radius:x+radius], axis=(0, 1))
-
+            avg_color = np.mean(frame[y1:y2, x1:x2], axis=(0, 1))
+            
+            # Desenhar o círculo encontrado
+            cv2.circle(frame, (x, y), 2, (255, 0, 0), 3)
+            
             # Verificar se a cor média é próxima de preto
-            if np.all(avg_color < 50):
-                # Desenhar o círculo encontrado
-                cv2.circle(img, (x, y), radius, (0, 255, 0), 2)
-                # # Desenhar o centro do círculo
-                # cv2.circle(img, (x, y), 2, (0, 0, 255), 3)
-
+            if np.all(avg_color < 60):
+                cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)
+                data["type"] = "dead"
             else:
-                # Desenhar o círculo encontrado
-                cv2.circle(img, (x, y), radius, (0, 0, 255), 2)
+                cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
+                data["type"] = "alive"
+            
+            # Adicionar o dicionário à lista
+            data_balls["balls"].append(data)
+   
+    
+    # Converter para JSON
+    data_json = json.dumps(data_balls)
+    return data_json
+    
 
-    # Exibir a imagem resultante
-    cv2.imshow('Circulos detectados', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
 
-def detectar_circulos_video(video_path):
-    # Abrir o vídeo
-    cap = cv2.VideoCapture(video_path)
+cap = cv2.VideoCapture(0) 
 
-    while cap.isOpened():
-        # Ler um quadro do vídeo
-        ret, frame = cap.read()
-        if not ret:
-            break
+var = detectar_circulos_video(cap)
+print(var)
 
-        # Converter o quadro para escala de cinza
-        img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # Aplicar um desfoque para reduzir ruídos
-        img_blur = cv2.medianBlur(img_gray, 5)
-
-        # Detectar círculos usando a Transformada de Hough
-        circles = cv2.HoughCircles(img_blur, cv2.HOUGH_GRADIENT, dp=1, minDist=20,
-                                   param1=60, param2=35, minRadius=0, maxRadius=0)
-
-        # Verificar se algum círculo foi encontrado
-        if circles is not None:
-            circles = np.uint16(np.around(circles))
-            for i in circles[0, :]:
-                # Coordenadas do centro e raio do círculo
-                x, y, radius = i[0], i[1], i[2]
-
-                # Calcular a cor média dentro do círculo
-                avg_color = np.mean(frame[y-radius:y+radius, x-radius:x+radius], axis=(0, 1))
-
-                # Verificar se a cor média é próxima de preto
-                if np.all(avg_color < 50):
-                    # Desenhar o círculo encontrado
-                    cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
-                    # # Desenhar o centro do círculo
-                    # cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)
-
-                else:
-                    # Desenhar o círculo encontrado
-                    cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)
-
-        # Exibir o quadro resultante
-        cv2.imshow('Circulos detectados', frame)
-
-        # Sair do loop se a tecla 'q' for pressionada
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    # Liberar o objeto de captura e fechar todas as janelas OpenCV
-    cap.release()
-    cv2.destroyAllWindows()
-
-# Exemplo de uso
-# detectar_circulos_video('videotest2.mp4')
-
-# Exemplo de uso
-detectar_circulos('cinza_preta.jpg')
+cap.release()
