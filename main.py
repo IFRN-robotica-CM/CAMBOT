@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import json
+import serial
+import time
 
 def detectar_circulos_video(video):
     data_balls = {"balls": []}
@@ -64,12 +66,29 @@ def detectar_circulos_video(video):
     # Converter para JSON
     data_json = json.dumps(data_balls)
     return data_json
+
+
+cap = cv2.VideoCapture(0)
+
+#cordenadas = detectar_circulos_video(cap)
+#print(cordenadas)
+#cap.release()
+ser = serial.Serial('/dev/ttyACM1', 9600) 
+time.sleep(2)
+
+while True:
+    message = ser.readline().decode('utf-8').strip()
     
-
-
-cap = cv2.VideoCapture(0) 
-
-var = detectar_circulos_video(cap)
-print(var)
+    
+    if message == 'GET_COORDS':
+        print(message)
+        print('dados enviados com sucesso')
+        cordenadas = detectar_circulos_video(cap)
+        ser.write(cordenadas.encode('utf-8'))
+        
+        print(cordenadas.encode('utf-8'))
+    else:
+        print(message)
 
 cap.release()
+        
