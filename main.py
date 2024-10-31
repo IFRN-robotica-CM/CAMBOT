@@ -5,8 +5,7 @@ import serial
 import time
 
 def detectar_circulos_video(video):
-    data_balls = {"n":3, "b": []}
-
+    circulos = []
     # Ler um quadro do vídeo
     ret, frame = video.read()
     
@@ -22,8 +21,7 @@ def detectar_circulos_video(video):
     img_blur = cv2.medianBlur(img_gray, 5)
 
     # Detectar círculos usando a Transformada de Hough
-    circles = cv2.HoughCircles(img_blur, cv2.HOUGH_GRADIENT, dp=1, minDist=70,
-                               param1=60, param2=35, minRadius=10, maxRadius=0)
+    circles = cv2.HoughCircles(img_blur, cv2.HOUGH_GRADIENT, dp=1, minDist=70, param1=70, param2=35, minRadius=10, maxRadius=0)
 
     # Verificar se algum círculo foi encontrado
     if circles is not None:
@@ -32,7 +30,7 @@ def detectar_circulos_video(video):
         num_circles = 1
         for i in circles[0, :]:
             # Criar uma nova instância de dicionário para cada círculo
-            data = {"id": num_circles, "xy": {"x": 0, "y": 0}, "t": " "}
+            data = {"id": num_circles, "xy": {"x": 0, "y": 0}, "s": " "}
             num_circles += 1
             
             # Coordenadas do centro e raio do círculo
@@ -48,32 +46,45 @@ def detectar_circulos_video(video):
             # Calcular a cor média dentro do círculo
             avg_color = np.mean(frame[y1:y2, x1:x2], axis=(0, 1))
             
-            # Desenhar o círculo encontrado
-            cv2.circle(frame, (x, y), 2, (255, 0, 0), 3)
-            
             # Verificar se a cor média é próxima de preto
             if np.all(avg_color < 60):
                 cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)
-                data["t"] = "dead"
+                data["s"] = "dead"
             else:
                 cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
-                data["t"] = "alive"
+                data["s"] = "alive"
             
             # Adicionar o dicionário à lista
-            data_balls["b"].append(data)
+            circulos.append(data)
    
+    #Retorna uma lista (list) de todos os dicionarios com as bolas (id, x, y, status)
+    return circulos
+
+
+def serializarCirculos(circulos, serial):
+    qtdCirculos = len(circulos)
+    print(qtdCirculos)
+    temp = json.dumps({"numCirculos":qtdCirculos})
+    serial.write(temp.encode("utf-8"))
     
-    # Converter para JSON
-    data_json = json.dumps(data_balls)
-    return data_json
-
-
+    for circulo in circulos:
+        message = ser.readline().decode('utf-8').strip()
+        print(message)
+        while not(message == 'GET'):
+            message = ser.readline().decode('utf-8').strip()
+            print(message)
+            print('waiting ...')
+            
+        circle = json.dumps(circulo)
+        serial.write(circle.encode('utf-8'))
+        message = ser.readline().decode('utf-8').strip()
+        print(message)
+        
+##############################################################################################
+    
 cap = cv2.VideoCapture(0)
 
-#cordenadas = detectar_circulos_video(cap)
-#print(cordenadas)
-#cap.release()
-ser = serial.Serial('/dev/ttyACM1',115200)
+ser = serial.Serial('/dev/ttyACM0',9600)
 time.sleep(2)
 
 while True:
@@ -81,14 +92,9 @@ while True:
     
     if message == 'GET_COORDS':
         
-        
         cordenadas = detectar_circulos_video(cap)
-        ser.write(cordenadas.encode('utf-8'))
         
-        print('raspi enviou isso:')
-        print(cordenadas)
-    else:
-        print(message)
-
+        serializarCirculos(cordenadas, ser)
+        
 cap.release()
         
