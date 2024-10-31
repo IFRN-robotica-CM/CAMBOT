@@ -5,7 +5,7 @@ import serial
 import time
 
 def detectar_circulos_video(video):
-    data_balls = {"balls": []}
+    data_balls = {"n":3, "b": []}
 
     # Ler um quadro do vídeo
     ret, frame = video.read()
@@ -32,14 +32,14 @@ def detectar_circulos_video(video):
         num_circles = 1
         for i in circles[0, :]:
             # Criar uma nova instância de dicionário para cada círculo
-            data = {"id": num_circles, "location": {"x": 0, "y": 0}, "type": " "}
+            data = {"id": num_circles, "xy": {"x": 0, "y": 0}, "t": " "}
             num_circles += 1
             
             # Coordenadas do centro e raio do círculo
             x, y, radius = i[0], i[1], i[2]
             
-            data["location"]["x"] = int(x)
-            data["location"]["y"] = int(y)
+            data["xy"]["x"] = int(x)
+            data["xy"]["y"] = int(y)
             
             # Garantir que o círculo esteja dentro dos limites da imagem
             x1, x2 = max(0, x-radius), min(frame.shape[1], x+radius)
@@ -54,13 +54,13 @@ def detectar_circulos_video(video):
             # Verificar se a cor média é próxima de preto
             if np.all(avg_color < 60):
                 cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)
-                data["type"] = "dead"
+                data["t"] = "dead"
             else:
                 cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
-                data["type"] = "alive"
+                data["t"] = "alive"
             
             # Adicionar o dicionário à lista
-            data_balls["balls"].append(data)
+            data_balls["b"].append(data)
    
     
     # Converter para JSON
@@ -73,20 +73,20 @@ cap = cv2.VideoCapture(0)
 #cordenadas = detectar_circulos_video(cap)
 #print(cordenadas)
 #cap.release()
-ser = serial.Serial('/dev/ttyACM1', 9600) 
+ser = serial.Serial('/dev/ttyACM1',115200)
 time.sleep(2)
 
 while True:
     message = ser.readline().decode('utf-8').strip()
     
-    
     if message == 'GET_COORDS':
-        print(message)
-        print('dados enviados com sucesso')
+        
+        
         cordenadas = detectar_circulos_video(cap)
         ser.write(cordenadas.encode('utf-8'))
         
-        print(cordenadas.encode('utf-8'))
+        print('raspi enviou isso:')
+        print(cordenadas)
     else:
         print(message)
 
