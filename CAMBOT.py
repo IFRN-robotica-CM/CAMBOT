@@ -13,6 +13,8 @@ def detectarCirculosImagem(video):
     #Lê um quadro do vídeo
     ret, frame = video.read()
     
+    frame = cv2.resize(frame, (640,480))
+    
     #Se o vídeo não for encontado mostra mensagem de erro
     if not ret:
         print("Erro ao ler o vídeo.")
@@ -42,13 +44,14 @@ def detectarCirculosImagem(video):
         num_circles = 1
         for i in circles[0, :]:
             #Criar um dicionário para cada círculo
-            data = {"id": num_circles, "xy": {"x": 0, "y": 0}, "s": " "}
+            data = {"id": num_circles, "xy": {"x": 0, "y": 0}, "s": " ", "r" : 0}
             num_circles += 1
             
             #Coordenadas do centro e raio do círculo e adiciona no dicionário
             x, y, radius = i[0], i[1], i[2]
-            data["xy"]["x"] = int(x)
+            data["xy"]["x"] = int((x-320)*5)/16
             data["xy"]["y"] = int(y)
+            data["r"] = int(radius)
             
             #Garante que o círculo esteja dentro dos limites da imagem
             x1, x2 = max(0, x-radius), min(frame.shape[1], x+radius)
@@ -73,20 +76,19 @@ def detectarCirculosImagem(video):
             circulos.append(data)
    
     #Retorna uma lista de todos os dicionarios com as bolas
-    if len(circulos) == 1:
-        return circulos
+    try:
+        return circulos[0]
+    except:
+        return None        
 
 
 def EnviarCirculo(circulo, serial):
-    #quantidade de círculos a serem enviados 
-    qtd = len(circulo)
-
-    if qtd == 1:
-        circle = json.dumps(circulo)
-        serial.write(circle.encode('utf-8'))
-        
-        message = ser.readline().decode('utf-8').strip()
-        print(message)        
+    
+    circle = json.dumps(circulo)
+    serial.write(circle.encode('utf-8'))
+    
+    message = ser.readline().decode('utf-8').strip()
+    print(message)        
 
 #Execução do script
 
@@ -94,16 +96,23 @@ def EnviarCirculo(circulo, serial):
 cap = cv2.VideoCapture(0)
 
 #Inicializa a serial para comunicação com o Arduino
-ser = serial.Serial('/dev/ttyACM0',9600)
-time.sleep(2)
+try:
+    ser = serial.Serial('/dev/ttyUSB0',115200)
+    time.sleep(2)
+except:
+    ser = serial.Serial('/dev/ttyUSB1',115200)
+    time.sleep(2)
+
 
 #Inicia como "escravo" esperando o Arduino pedir os dados
 while True:
     message = ser.readline().decode('utf-8').strip()
+    print(message)
     
     if message == 'GET_COORDS':
         
         cordenadas = detectarCirculosImagem(cap)
+        print(f"raspi: {cordenadas}")
         EnviarCirculo(cordenadas, ser)
         
 cap.release()
