@@ -47,7 +47,9 @@ def detectarCirculosImagem(video):
             
             #Coordenadas do centro e raio do círculo e adiciona no dicionário
             x, y, radius = i[0], i[1], i[2]
-            data["xy"]["x"] = int(x)
+            x = int(x)
+            
+            data["xy"]["x"] = ((x- 320)*5)/16
             data["xy"]["y"] = int(y)
             
             #Garante que o círculo esteja dentro dos limites da imagem
@@ -110,13 +112,17 @@ def EnviarCirculos(circulos, serial):
 #Inicializa a camera
 cap = cv2.VideoCapture(0)
 
-#Inicializa a serial para comunicação com o Arduino
-ser = serial.Serial('/dev/ttyACM0',9600)
-time.sleep(2)
-
+try:
+    #Inicializa a serial para comunicação com o Arduino
+    ser = serial.Serial('/dev/ttyUSB0',9600)
+    time.sleep(2)
+except:
+    ser = serial.Serial('/dev/ttyUSB1',9600)
+    time.sleep(2)
 #Inicia como "escravo" esperando o Arduino pedir os dados
 while True:
     message = ser.readline().decode('utf-8').strip()
+    print(message)
     
     if message == 'GET_COORDS':
         
