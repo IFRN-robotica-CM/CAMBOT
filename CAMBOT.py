@@ -73,35 +73,18 @@ def detectarCirculosImagem(video):
             circulos.append(data)
    
     #Retorna uma lista de todos os dicionarios com as bolas
-    return circulos
+    if len(circulos) == 1:
+        return circulos
 
 
-def EnviarCirculos(circulos, serial):
-    #Envia a quantidade de círculos a serem enviados 
-    qtd = len(circulos)
-    temp = json.dumps({"numCirculos":qtd})
-    serial.write(temp.encode("utf-8"))
-    
-    #Para ca circulo encontrado
-    for circulo in circulos:
-        #espera o Arduino dizer que está pronto para receber
-        message = ser.readline().decode('utf-8').strip()
-        print(message)
+def EnviarCirculo(circulo, serial):
+    #quantidade de círculos a serem enviados 
+    qtd = len(circulo)
 
-        #Enquanto ele não pedir as cordenadas espere ele pedir
-        while not(message == 'GET'):
-            message = ser.readline().decode('utf-8').strip()
-            print(message)
-            print('waiting ...')
-
-        #Se o Arduino está pronto para receber os dados do círculo 
-
-        #Serializa para o formato json
+    if qtd == 1:
         circle = json.dumps(circulo)
-        #Envia pela serial
         serial.write(circle.encode('utf-8'))
-
-        #Mostra mensagem de recebimento do Arduino
+        
         message = ser.readline().decode('utf-8').strip()
         print(message)        
 
@@ -121,7 +104,7 @@ while True:
     if message == 'GET_COORDS':
         
         cordenadas = detectarCirculosImagem(cap)
-        EnviarCirculos(cordenadas, ser)
+        EnviarCirculo(cordenadas, ser)
         
 cap.release()
         
