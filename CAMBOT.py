@@ -1,31 +1,24 @@
-#impotação de bibliotecas de visão computacional, json e serial
+# Importação de bibliotecas necessárias
 import cv2
 import numpy as np
-import json
-import serial
-import time
 
-#definição das funções de detecção e envio dos círculos
+# Função para detectar círculos na imagem capturada em tempo real
 def detectarCirculosImagem(video):
-    #Inicializa a lista de circulos encontrados
-    circulos = []
-
-    #Lê um quadro do vídeo
+    # Lê um quadro do vídeo
     ret, frame = video.read()
     
-    #Se o vídeo não for encontado mostra mensagem de erro
+    # Verifica se o vídeo foi lido corretamente
     if not ret:
         print("Erro ao ler o vídeo.")
-        cap.release()
-        return
+        return []
 
-    #Converte o quadro para escalas de cinza
+    # Converte o quadro para escala de cinza
     img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    #Aplica um desfoque para reduzir ruídos que possam existir
+    # Aplica desfoque para reduzir ruídos
     img_blur = cv2.medianBlur(img_gray, 5)
 
-    # Detectar círculos usando a Transformada de Hough
+    # Detecta círculos usando a Transformada de Hough
     circles = cv2.HoughCircles(img_blur, 
                                cv2.HOUGH_GRADIENT, 
                                dp=1, 
@@ -35,93 +28,49 @@ def detectarCirculosImagem(video):
                                minRadius=10, 
                                maxRadius=0)
 
-    # Verificar se algum círculo foi encontrado
+    # Lista para armazenar as coordenadas dos círculos detectados
+    circulos_detectados = []
+
+    # Verifica se algum círculo foi detectado
     if circles is not None:
         circles = np.uint16(np.around(circles))
-        
-        num_circles = 1
+
         for i in circles[0, :]:
-            #Criar um dicionário para cada círculo
-            data = {"id": num_circles, "xy": {"x": 0, "y": 0}, "s": " "}
-            num_circles += 1
-            
-            #Coordenadas do centro e raio do círculo e adiciona no dicionário
+            # Extrai as coordenadas do centro e o raio do círculo
             x, y, radius = i[0], i[1], i[2]
-            data["xy"]["x"] = int(x)
-            data["xy"]["y"] = int(y)
             
-            #Garante que o círculo esteja dentro dos limites da imagem
-            x1, x2 = max(0, x-radius), min(frame.shape[1], x+radius)
-            y1, y2 = max(0, y-radius), min(frame.shape[0], y+radius)
+            # Desenha o círculo na imagem para visualização
+            cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
+            cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)  # Marca o centro
             
-            #Calcula a cor média dentro do círculo
-            avg_color = np.mean(frame[y1:y2, x1:x2], axis=(0, 1))
-            
-            #Verifica se a cor média é próxima de preto
-            if np.all(avg_color < 60):
-                cv2.circle(frame, (x, y), radius, (0, 0, 255), 2)
-                #Adiciona o status da vítima como morta
-                data["s"] = "dead"
+            # Adiciona as coordenadas do centro à lista
+            circulos_detectados.append({"x": int(x), "y": int(y)})
 
-            #Se não for preto
-            else:
-                cv2.circle(frame, (x, y), radius, (0, 255, 0), 2)
-                #Adiciona o status da vítima como viva
-                data["s"] = "alive"
-            
-            # Adicionar o dicionário do circulo à lista de circulos encontrados
-            circulos.append(data)
-   
-    #Retorna uma lista de todos os dicionarios com as bolas
-    return circulos
-
-
-def EnviarCirculos(circulos, serial):
-    #Envia a quantidade de círculos a serem enviados 
-    qtd = len(circulos)
-    temp = json.dumps({"numCirculos":qtd})
-    serial.write(temp.encode("utf-8"))
+    # Exibe a imagem com os círculos detectados em tempo real
+    cv2.imshow('Detecção de Círculos', frame)
     
-    #Para ca circulo encontrado
-    for circulo in circulos:
-        #espera o Arduino dizer que está pronto para receber
-        message = ser.readline().decode('utf-8').strip()
-        print(message)
+    # Retorna as coordenadas dos círculos detectados
+    return circulos_detectados
 
-        #Enquanto ele não pedir as cordenadas espere ele pedir
-        while not(message == 'GET'):
-            message = ser.readline().decode('utf-8').strip()
-            print(message)
-            print('waiting ...')
 
-        #Se o Arduino está pronto para receber os dados do círculo 
+# Execução do script
 
-        #Serializa para o formato json
-        circle = json.dumps(circulo)
-        #Envia pela serial
-        serial.write(circle.encode('utf-8'))
-
-        #Mostra mensagem de recebimento do Arduino
-        message = ser.readline().decode('utf-8').strip()
-        print(message)        
-
-#Execução do script
-
-#Inicializa a camera
+# Inicializa a câmera
 cap = cv2.VideoCapture(0)
 
-#Inicializa a serial para comunicação com o Arduino
-ser = serial.Serial('/dev/ttyACM0',9600)
-time.sleep(2)
-
-#Inicia como "escravo" esperando o Arduino pedir os dados
+# Loop principal para processar o vídeo em tempo real
 while True:
-    message = ser.readline().decode('utf-8').strip()
+    # Detecta os círculos na imagem capturada
+    circulos = detectarCirculosImagem(cap)
     
-    if message == 'GET_COORDS':
-        
-        cordenadas = detectarCirculosImagem(cap)
-        EnviarCirculos(cordenadas, ser)
-        
+    # Exibe as coordenadas dos círculos detectados
+    if circulos:
+        print(f"Círculos detectados: {circulos}")
+    
+    # Verifica se a tecla 'q' foi pressionada para sair
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Libera os recursos da câmera e fecha as janelas
 cap.release()
-        
+cv2.destroyAllWindows()
