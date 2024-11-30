@@ -10,7 +10,7 @@ def detectarCirculosImagem(video):
     # Verifica se o vídeo foi lido corretamente
     if not ret:
         print("Erro ao ler o vídeo.")
-        return []
+        return [], None
 
     # Converte o quadro para escala de cinza
     img_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -46,11 +46,8 @@ def detectarCirculosImagem(video):
             # Adiciona as coordenadas do centro à lista
             circulos_detectados.append({"x": int(x), "y": int(y)})
 
-    # Exibe a imagem com os círculos detectados em tempo real
-    cv2.imshow('Detecção de Círculos', frame)
-    
-    # Retorna as coordenadas dos círculos detectados
-    return circulos_detectados
+    # Retorna as coordenadas dos círculos detectados e o quadro
+    return circulos_detectados, frame
 
 
 # Execução do script
@@ -58,15 +55,23 @@ def detectarCirculosImagem(video):
 # Inicializa a câmera
 cap = cv2.VideoCapture(0)
 
+# Inicializa um contador de quadros para reduzir a frequência de exibição
+frame_count = 0
+
 # Loop principal para processar o vídeo em tempo real
 while True:
     # Detecta os círculos na imagem capturada
-    circulos = detectarCirculosImagem(cap)
-    
+    circulos, frame = detectarCirculosImagem(cap)
+
     # Exibe as coordenadas dos círculos detectados
     if circulos:
         print(f"Círculos detectados: {circulos}")
     
+    # Exibe a janela somente a cada 10 quadros
+    frame_count += 1
+    if frame_count % 10 == 0 and frame is not None:
+        cv2.imshow('Detecção de Círculos', frame)
+
     # Verifica se a tecla 'q' foi pressionada para sair
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
